@@ -5,6 +5,7 @@ import json
 import requests
 
 from stellar_base.exceptions import APIException
+import logging
 
 try:
     from sseclient import SSEClient
@@ -20,12 +21,14 @@ except ImportError:
 HORIZON_LIVE = "https://horizon.stellar.org"
 HORIZON_TEST = "https://horizon-testnet.stellar.org"
 
+log = logging.getLogger(__name__)
 
 def query(url, params=None, sse=False):
     if sse is False:
         res = requests.get(url, params=params)
         if res.status_code in range(400, 501):
             error = res.json()
+            log.exception(error['title'])
             raise APIException(error['title'], status_code=res.status_code, payload=error)
         return res.json()
     else:
@@ -50,6 +53,7 @@ class Horizon(object):
         res = requests.post(url, data=params)  # timeout=20
         if res.status_code in range(400, 501):
             error = res.json()
+            log.exception(error['title'])
             raise APIException(error['title'], status_code=res.status_code, payload=error)
         return res.json()
 
