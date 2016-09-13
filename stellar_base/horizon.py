@@ -29,7 +29,7 @@ def query(url, params=None, sse=False):
         res = requests.get(url, params=params)
         if res.status_code in range(400, 501):
             error = res.json()
-            logging.info(error['title'])
+            log.info(error['title'])
             raise APIException(error['title'], status_code=res.status_code, payload=error)
         return res.json()
     else:
@@ -54,7 +54,7 @@ class Horizon(object):
         res = requests.post(url, data=params)  # timeout=20
         if res.status_code in range(400, 501):
             error = res.json()
-            logging.info(error['title'])
+            log.info(error['title'])
             raise APIException(error['title'], status_code=res.status_code, payload=error)
         return res.json()
 
