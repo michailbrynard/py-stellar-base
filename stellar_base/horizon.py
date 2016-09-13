@@ -27,6 +27,7 @@ def query(url, params=None, sse=False):
         if res.status_code in range(400, 501):
             error = res.json()
             raise APIException(error['title'], status_code=res.status_code, payload=error)
+        return res.json()
     else:
         if SSEClient is None:
             raise ValueError('SSE not supported, missing sseclient module')
