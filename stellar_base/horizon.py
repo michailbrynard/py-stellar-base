@@ -47,8 +47,11 @@ class Horizon(object):
     def submit(self, te):
         params = {'tx': te}
         url = self.horizon + '/transactions/'
-        p = requests.post(url, data=params, )  # timeout=20
-        return json.loads(p.text)
+        res = requests.post(url, data=params)  # timeout=20
+        if res.status_code in range(400, 501):
+            error = res.json()
+            raise APIException(error['title'], status_code=res.status_code, payload=error)
+        return res.json()
 
     def query(self, url, params=None, sse=False):
         return query(self.horizon + url, params, sse)
