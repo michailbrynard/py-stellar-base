@@ -4,6 +4,8 @@ import json
 
 import requests
 
+from stellar_base.exceptions import APIException
+
 try:
     from sseclient import SSEClient
 except ImportError:
@@ -21,12 +23,10 @@ HORIZON_TEST = "https://horizon-testnet.stellar.org"
 
 def query(url, params=None, sse=False):
     if sse is False:
-        # p = requests.get(url, params=params)
-        # return json.loads(p.text)
-        try:
-            return requests.get(url, params=params).json()
-        except:
-            raise Exception('query failed')
+        res = requests.get(url, params=params)
+        if res.status_code in range(400, 501):
+            error = res.json()
+            raise APIException(error['title'], status_code=res.status_code, payload=error)
     else:
         if SSEClient is None:
             raise ValueError('SSE not supported, missing sseclient module')
