@@ -15,12 +15,19 @@ class Asset(object):
 
         self.code = code
         self.issuer = issuer
+        self.type = self.guessAssetType()
+
+    def __eq__(self, other):
+        return self.xdr() == other.xdr()
+
+    def guessAssetType(self):
+        return len(self.code) > 4 and 'credit_alphanum12' or 'credit_alphanum4'
 
     def to_dict(self):
         rv = {'asset_code': self.code}
         if not self.is_native():
             rv['asset_issuer'] = self.issuer
-            rv['asset_type'] = len(self.code) > 4 and 'credit_alphanum12' or 'credit_alphanum4'
+            rv['asset_type'] = self.type
         else:
             rv['asset_type'] = 'native'
         return rv
@@ -31,9 +38,6 @@ class Asset(object):
 
     def is_native(self):
         return True if self.issuer is None else False
-
-    # def equals(self, asset):
-    #     return self.code == asset.code and self.issuer == asset.issuer
 
     def to_xdr_object(self):
         if self.is_native():
@@ -62,9 +66,17 @@ class Asset(object):
         if asset_xdr_object.type == Xdr.const.ASSET_TYPE_NATIVE:
             return Asset.native()
         elif asset_xdr_object.type == Xdr.const.ASSET_TYPE_CREDIT_ALPHANUM4:
-            issuer = encode_check('account', asset_xdr_object.alphaNum4.issuer.ed25519)
+            issuer = encode_check('account', asset_xdr_object.alphaNum4.issuer.ed25519).decode()
             code = asset_xdr_object.alphaNum4.assetCode.decode().rstrip('\x00')
         else:
-            issuer = encode_check('account', asset_xdr_object.alphaNum12.issuer.ed25519)
+            issuer = encode_check('account', asset_xdr_object.alphaNum12.issuer.ed25519).decode()
             code = asset_xdr_object.alphaNum12.assetCode.decode().rstrip('\x00')
         return cls(code, issuer)
+
+    @classmethod
+    def from_xdr(cls, xdr):
+        xdr_decoded = base64.b64decode(xdr)
+        asset = Xdr.StellarXDRUnpacker(xdr_decoded)
+        asset_xdr_object = asset.unpack_Asset()
+        asset = Asset.from_xdr_object(asset_xdr_object)
+        return asset

@@ -1,4 +1,4 @@
-# code : utf-8
+# coding: utf-8
 
 from .memo import *
 from .operation import *
@@ -42,6 +42,11 @@ class Transaction(object):
         ext.v = 0
         return Xdr.types.Transaction(source_account, self.fee, self.sequence, self.time_bounds, memo,
                                      operations, ext)
+
+    def xdr(self):
+        tx = Xdr.StellarXDRPacker()
+        tx.pack_Transaction(self.to_xdr_object())
+        return base64.b64encode(tx.get_buffer())
 
     @classmethod
     def from_xdr_object(cls, tx_xdr_object):

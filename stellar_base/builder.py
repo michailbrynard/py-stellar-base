@@ -1,4 +1,4 @@
-# encoding: utf-8
+# coding: utf-8
 
 # from stellar_base.asset import Asset
 from .horizon import HORIZON_LIVE, HORIZON_TEST
@@ -10,6 +10,7 @@ from .operation import *
 from .transaction import Transaction
 from .transaction_envelope import TransactionEnvelope as Te
 from .utils import SignatureExistError
+from .federation import *
 
 
 class Builder(object):
@@ -17,7 +18,7 @@ class Builder(object):
 
     """
 
-    def __init__(self, secret=None, horizon=None, network=None, sequence=None):
+    def __init__(self, secret=None, address=None, horizon=None, network=None, sequence=None):
         if secret:
             self.key_pair = Keypair.from_seed(secret)
             self.address = self.key_pair.address().decode()
@@ -25,7 +26,13 @@ class Builder(object):
             self.key_pair = None
             self.address = None
 
-        if network != 'PUBLIC':
+        if address is None and secret is None:
+            raise Exception('No Stellar address afforded.')
+        if address is not None and secret is None:
+            self.address = address
+            self.key_pair = None
+
+        if network is None or network.upper() != 'PUBLIC':
             self.network = 'TESTNET'
         else:
             self.network = 'PUBLIC'
@@ -52,6 +59,7 @@ class Builder(object):
     def append_op(self, operation):
         if operation not in self.ops:
             self.ops.append(operation)
+        return self
 
     def append_create_account_op(self, destination, starting_balance, source=None):
         opts = {
@@ -60,7 +68,7 @@ class Builder(object):
             'starting_balance': str(starting_balance)
         }
         op = CreateAccount(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_trust_op(self, destination, code, limit=None, source=None):
         line = Asset(code, destination)
@@ -72,7 +80,7 @@ class Builder(object):
             'limit': limit
         }
         op = ChangeTrust(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_payment_op(self, destination, amount, asset_type='XLM',
                           asset_issuer=None, source=None):
@@ -84,11 +92,12 @@ class Builder(object):
             'amount': str(amount)
         }
         op = Payment(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_path_payment_op(self, destination, send_code, send_issuer, send_max,
                                dest_code, dest_issuer, dest_amount, path, source=None):
         # path: a list of asset tuple which contains code and issuer, [(code,issuer),(code,issuer)]
+        # for native asset you can delivery ('xlm','')
         send_asset = Asset(send_code, send_issuer)
         dest_asset = Asset(dest_code, dest_issuer)
 
@@ -105,8 +114,8 @@ class Builder(object):
             'dest_amount': str(dest_amount),
             'path': assets
         }
-        op = Payment(opts)
-        self.append_op(op)
+        op = PathPayment(opts)
+        return self.append_op(op)
 
     def append_allow_trust_op(self, trustor, asset_code, authorize, source=None):
         opts = {
@@ -116,12 +125,12 @@ class Builder(object):
             'authorize': authorize
         }
         op = AllowTrust(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_set_options_op(self, inflation_dest=None, clear_flags=None, set_flags=None,
                               master_weight=None, low_threshold=None, med_threshold=None,
                               high_threshold=None, home_domain=None, signer_address=None,
-                              signer_weight=None, source=None,
+                              signer_type=None, signer_weight=None, source=None,
                               ):
         opts = {
             'source': source,
@@ -134,10 +143,19 @@ class Builder(object):
             'high_threshold': high_threshold,
             'home_domain': bytearray(home_domain, encoding='utf-8') if home_domain else None,
             'signer_address': signer_address,
+            'signer_type': signer_type,
             'signer_weight': signer_weight
         }
         op = SetOptions(opts)
-        self.append_op(op)
+        return self.append_op(op)
+
+    def append_hashx_signer(self, hashx, signer_weight, source=None):
+        return self.append_set_options_op(signer_address=hashx, signer_type='hashX', signer_weight=signer_weight,
+                                          source=source)
+
+    def append_pre_auth_tx_signer(self, pre_auth_tx, signer_weight, source=None):
+        return self.append_set_options_op(signer_address=pre_auth_tx, signer_type='preAuthTx',
+                                          signer_weight=signer_weight, source=source)
 
     def append_manage_offer_op(self, selling_code, selling_issuer,
                                buying_code, buying_issuer,
@@ -155,7 +173,7 @@ class Builder(object):
 
         }
         op = ManageOffer(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_create_passive_offer_op(self, selling_code, selling_issuer,
                                        buying_code, buying_issuer,
@@ -171,7 +189,7 @@ class Builder(object):
             'price': price,
         }
         op = CreatePassiveOffer(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_account_merge_op(self, destination, source=None):
 
@@ -180,12 +198,12 @@ class Builder(object):
             'destination': destination
         }
         op = AccountMerge(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_inflation_op(self, source=None):
         opts = {'source': source}
         op = Inflation(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def append_manage_data_op(self, data_name, data_value, source=None):
         opts = {
@@ -194,29 +212,41 @@ class Builder(object):
             'data_value': data_value
         }
         op = ManageData(opts)
-        self.append_op(op)
+        return self.append_op(op)
 
     def add_memo(self, memo):
         self.memo = memo
+        return self
 
     def add_text_memo(self, memo_text):
         memo_text = TextMemo(memo_text)
-        self.add_memo(memo_text)
+        return self.add_memo(memo_text)
 
     def add_id_memo(self, memo_id):
         memo_id = IdMemo(memo_id)
-        self.add_memo(memo_id)
+        return self.add_memo(memo_id)
 
     def add_hash_memo(self, memo_hash):
         memo_hash = HashMemo(memo_hash)
-        self.add_memo(memo_hash)
+        return self.add_memo(memo_hash)
 
     def add_ret_hash_memo(self, memo_return):
         memo_return = RetHashMemo(memo_return)
-        self.add_memo(memo_return)
+        return self.add_memo(memo_return)
 
     def add_time_bounds(self, time_bounds):
-        self.time_bounds.append(time_bounds)
+        return self.time_bounds.append(time_bounds)
+
+    def federation_payment(self, fed_address, amount, asset_type='XLM',
+                           asset_issuer=None, source=None):
+        fed_info = federation(fed_address, 'name')
+        if not fed_info:
+            raise FederationError('can not get valid federation response. ')
+        self.append_payment_op(fed_info['account_id'], amount, asset_type,
+                               asset_issuer, source)
+        memo_type = fed_info.get('memo_type')
+        if memo_type is not None and memo_type in ('text', 'id', 'hash'):
+            getattr(self, 'add_' + memo_type + '_memo')(fed_info['memo'])
 
     def gen_tx(self):
         if not self.address:
@@ -227,7 +257,7 @@ class Builder(object):
             self.address,
             opts={
                 'sequence': self.sequence,
-                'time_Bounds': self.time_bounds,
+                'timeBounds': self.time_bounds,
                 'memo': self.memo,
                 'fee': self.fee if self.fee else 100 * len(self.ops),
                 'operations': self.ops,
@@ -237,7 +267,8 @@ class Builder(object):
         return tx
 
     def gen_te(self):
-        self.gen_tx()
+        if self.tx is None:
+            self.gen_tx()
         te = Te(self.tx, opts={'network_id': self.network})
         if self.te:
             te.signatures = self.te.signatures
@@ -245,11 +276,16 @@ class Builder(object):
         return te
 
     def gen_xdr(self):
-        try:
-            self.sign()
-        except SignatureExistError:
-            pass
+        if self.tx is None:
+            self.gen_te()
         return self.te.xdr()
+
+    def gen_compliance_xdr(self):
+        sequence = self.sequence
+        self.sequence = '-1'  # sequence number shoule be '0' here. so the pass one is '-1'
+        tx_xdr = self.gen_tx().xdr()
+        self.sequence = sequence
+        return tx_xdr
 
     def import_from_xdr(self, xdr):
         te = Te.from_xdr(xdr)
@@ -269,6 +305,16 @@ class Builder(object):
 
         try:
             self.te.sign(key_pair)
+        except SignatureExistError:
+            raise
+
+    def sign_preimage(self, preimage):
+        ''' preimage must be a unicode string
+        '''
+        if self.te is None:
+            self.gen_te()
+        try:
+            self.te.sign_hashX(preimage)
         except SignatureExistError:
             raise
 

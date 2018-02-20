@@ -31,5 +31,11 @@ class TestAsset:
 
     def test_xdr(self):
         xdr = b'AAAAAUNOWQAAAAAA01KM3XCt1+LHD7jDTOYpe/HGKSDoQoyL1JbUOc0+E2M='
-        cny = Asset('CNY',self.source)
+        cny = Asset('CNY', self.source)
         assert xdr == cny.xdr()
+
+    def test_unxdr(self):
+        cny = Asset('CNY', self.source)
+        xdr = cny.xdr()
+        cny_x = Asset.from_xdr(xdr)
+        assert cny == cny_x

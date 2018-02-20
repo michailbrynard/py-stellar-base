@@ -1,16 +1,16 @@
-# coding:utf-8
+# coding: utf-8
 import base64
 import os
 
 from .base58 import b58decode_check, b58encode_check
 from .stellarxdr import Xdr
-from .utils import XdrLengthError, decode_check, encode_check
+from .utils import XdrLengthError, decode_check, encode_check, StellarMnemonic
 
 # noinspection PyBroadException
 try:
     # noinspection PyUnresolvedReferences
     from pure25519 import ed25519_oop as ed25519
-except:
+except ImportError:
     import ed25519
 import hashlib
 
@@ -26,11 +26,12 @@ class Keypair(object):
         self.signing_key = signing_key
 
     @classmethod
-    def deterministic(cls, master):
+    def deterministic(cls, mnemonic, passphrase='', lang='english', index=0):
         """ a deterministic keypair generator .
-            :type master: bytes-like object  for create keypair. e.g. u'中文'.encode('utf-8') 
+            :type master: bytes-like object  for create keypair. e.g. u'中文'.encode('utf-8')
         """
-        seed = hashlib.sha256(master).digest()
+        sm = StellarMnemonic(lang)
+        seed = sm.to_seed(mnemonic, passphrase=passphrase, index=index)
         return cls.from_raw_seed(seed)
 
     @classmethod

@@ -1,6 +1,9 @@
+# coding: utf-8 
+
 from nose.tools import raises
 from stellar_base import utils
 from stellar_base.stellarxdr import StellarXDR_pack as Xdr
+
 
 class TestUtils():
     def __init__(self):
@@ -14,7 +17,7 @@ class TestUtils():
         assert type(utils.decode_check('account', self.account)) is bytes
 
     # def test_encode_check(self):
-        # TODO
+    # TODO
 
     def test_best_rational_approximation(self):
         assert {'n': 1, 'd': 10} == utils.best_rational_approximation("0.1")
@@ -49,3 +52,14 @@ class TestUtils():
     @raises(Exception)
     def test_best_rational_approximation_not_found_numerator(self):
         utils.best_rational_approximation("2147483648")
+
+    @raises(utils.MnemonicError)
+    def test_mnemonic_check(self):
+        sm = utils.StellarMnemonic()
+        m = sm.generate()
+        sm.to_seed(m + '1')
+
+    def test_menonic(self):
+        sm = utils.StellarMnemonic('chinese')
+        mnemonic = u'域 监 惜 国 期 碱 珍 继 造 监 剥 电'
+        assert sm.check(mnemonic)

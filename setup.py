@@ -8,7 +8,7 @@ with codecs.open('README.md', encoding='utf-8') as file:
 
 setup(
     name='stellar-base',
-    version='0.1.0',
+    version='0.1.8',
     description='stellar-base in python.',
     long_description=long_description,
     url='http://github.com/stellarCN/py-stellar-base/',
@@ -31,6 +31,6 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     install_requires=[
-        'ed25519', 'crc16', 'requests', 'SSEClient', 'numpy'
+        'ed25519', 'crc16', 'requests', 'SSEClient', 'numpy', 'toml', 'mnemonic'
     ]
 )
